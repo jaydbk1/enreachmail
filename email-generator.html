@@ -356,9 +356,13 @@ body {
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
       Nueva
     </button>
-    <button class="btn" id="copyBtn">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
-      Copiar
+    <button class="btn" id="copyPlainBtn" title="Copiar como texto sin formato">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/></svg>
+      Texto
+    </button>
+    <button class="btn btn-accent" id="copyBtn" title="Copiar como HTML para Outlook / Gmail">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+      Copiar HTML
     </button>
   </div>
 </header>
@@ -442,10 +446,17 @@ body {
       </div>
       <div class="form-group">
         <label for="m_body">Cuerpo del email</label>
-        <textarea id="m_body" rows="10" placeholder="Usa {id_del_campo} para insertar valores.&#10;Ej: Hola, {nombre}:&#10;&#10;Tu pedido #{numero} ha sido procesado."></textarea>
+        <div id="m_body" contenteditable="true" spellcheck="true"
+          style="min-height:200px;max-height:340px;overflow-y:auto;padding:10px 12px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);background:var(--surface);color:var(--text-primary);font-family:inherit;font-size:13px;line-height:1.7;outline:none;white-space:pre-wrap;word-break:break-word;transition:border-color .15s,box-shadow .15s"
+          data-placeholder="Usa {id_del_campo} para insertar valores.&#10;Ej: Hola, {nombre}:&#10;&#10;Tu pedido #{numero} ha sido procesado."
+        ></div>
+        <div style="font-size:11.5px;color:var(--text-muted);margin-top:5px;display:flex;align-items:center;gap:5px">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;flex-shrink:0"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+          Selecciona texto y pega una URL con <kbd style="font-size:10px;padding:1px 5px;border:1px solid var(--border-strong);border-radius:3px;background:var(--bg)">Ctrl+V</kbd> para crear un enlace
+        </div>
       </div>
       <div class="hint">
-        💡 Cada campo genera una variable <code>{id}</code> usable en asunto y cuerpo. El ID debe ser único y sin espacios.<br>⏰ <code>{saludo}</code> se resuelve automáticamente según la hora: <em>Buenos días / Buenas tardes / Buenas noches</em>.
+        💡 Cada campo genera una variable <code>{id}</code> usable en asunto y cuerpo. El ID debe ser único y sin espacios.<br>⏰ <code>{saludo}</code> → <em>Buenos días / Buenas tardes / Buenas noches</em> según la hora.<br>🔗 Hipervínculos: <code>[texto del enlace](https://url.com)</code> — se renderiza como enlace clicable.
       </div>
     </div>
     <div class="modal-footer">
@@ -589,6 +600,81 @@ const mName       = document.getElementById('m_name');
 const mKey        = document.getElementById('m_key');
 const mSubject    = document.getElementById('m_subject');
 const mBody       = document.getElementById('m_body');
+
+/* ── Contenteditable ↔ storage helpers ── */
+// Convert stored markdown [text](url) + newlines → contenteditable HTML
+function bodyToEditable(str) {
+  return str
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,
+      '<a href="$2" style="color:#2d5be3;text-decoration:underline" contenteditable="false" target="_blank" data-link="true">$1</a>')
+    .replace(/\n/g,'<br>');
+}
+
+// Convert contenteditable HTML → stored markdown
+function editableToBody(el) {
+  // Clone to not disturb DOM
+  const clone = el.cloneNode(true);
+  // Replace <a> tags with [text](href)
+  clone.querySelectorAll('a[data-link]').forEach(a => {
+    const md = document.createTextNode('[' + a.textContent + '](' + a.getAttribute('href') + ')');
+    a.replaceWith(md);
+  });
+  // Replace <br> and block elements with newlines
+  clone.querySelectorAll('br').forEach(br => br.replaceWith('\n'));
+  clone.querySelectorAll('div,p').forEach(d => {
+    if (d.previousSibling) d.insertAdjacentText('beforebegin', '\n');
+  });
+  return clone.textContent;
+}
+
+// Focus style
+mBody.addEventListener('focus', () => {
+  mBody.style.borderColor = 'var(--accent)';
+  mBody.style.boxShadow   = '0 0 0 3px rgba(45,91,227,.09)';
+});
+mBody.addEventListener('blur', () => {
+  mBody.style.borderColor = '';
+  mBody.style.boxShadow   = '';
+});
+
+// Paste interceptor: if there's a selection and clipboard has a URL → make link
+mBody.addEventListener('paste', async (e) => {
+  const sel = window.getSelection();
+  if (!sel || sel.isCollapsed || !sel.rangeCount) return; // no selection → normal paste
+
+  let pasted = '';
+  if (e.clipboardData) {
+    pasted = e.clipboardData.getData('text/plain').trim();
+  }
+
+  const isUrl = /^https?:\/\/\S+$/.test(pasted);
+  if (!isUrl) return; // not a URL → normal paste
+
+  e.preventDefault();
+  const range = sel.getRangeAt(0);
+  const selectedText = range.toString();
+  if (!selectedText) return;
+
+  // Build the link
+  const a = document.createElement('a');
+  a.href = pasted;
+  a.textContent = selectedText;
+  a.style.cssText = 'color:#2d5be3;text-decoration:underline';
+  a.setAttribute('contenteditable', 'false');
+  a.setAttribute('target', '_blank');
+  a.setAttribute('data-link', 'true');
+
+  range.deleteContents();
+  range.insertNode(a);
+
+  // Move cursor after the link
+  const newRange = document.createRange();
+  newRange.setStartAfter(a);
+  newRange.collapse(true);
+  sel.removeAllRanges();
+  sel.addRange(newRange);
+});
 const mFields     = document.getElementById('fieldsEditor');
 const addFieldBtn = document.getElementById('addFieldBtn');
 const deleteBtn   = document.getElementById('deleteBtn');
@@ -655,16 +741,31 @@ function getValues() {
   return vals;
 }
 
+// Convert [text](url) to <a> links, and newlines to <br>
+function renderHtml(str) {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,
+      '<a href="$2" style="color:#2d5be3;text-decoration:underline" target="_blank">$1</a>')
+    .replace(/\n/g, '<br>');
+}
+
+// Plain text version: [text](url) → text (url)
+function renderPlain(str) {
+  return str.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, '$1 ($2)');
+}
+
 function render() {
   const tpl = templates.find(t => t.id === currentId);
   if (!tpl) return;
   const vals = getValues();
-  // persist values keyed by field id (shared across templates)
   Object.assign(fieldValues, vals);
   subjEl.textContent = interpolate(tpl.asunto, vals);
   const filled = interpolate(tpl.cuerpo, vals);
-  bodyEl.textContent = filled;
-  charEl.textContent = `${filled.length} caracteres`;
+  bodyEl.innerHTML = renderHtml(filled);
+  charEl.textContent = `${filled.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').length} caracteres`;
 }
 
 /* =====================================================
@@ -707,22 +808,71 @@ sel.addEventListener('change', () => {
 /* =====================================================
    COPY
 ===================================================== */
+// Helper: flash a button as success then restore
+function flashBtn(btn, successHtml, originalHtml, ms = 2400) {
+  btn.classList.add('btn-success');
+  btn.innerHTML = successHtml;
+  setTimeout(() => { btn.classList.remove('btn-success'); btn.innerHTML = originalHtml; }, ms);
+}
+
+// Copy HTML (for Outlook / Gmail)
+const copyPlainBtn = document.getElementById('copyPlainBtn');
+
 copyBtn.addEventListener('click', () => {
-  const text = bodyEl.textContent;
-  const done = () => {
-    copyBtn.classList.add('btn-success');
-    copyBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> ¡Copiado!`;
-    showToast('¡Email copiado al portapapeles!');
-    setTimeout(() => {
-      copyBtn.classList.remove('btn-success');
-      copyBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg> Copiar`;
-    }, 2400);
-  };
-  navigator.clipboard.writeText(text).then(done).catch(() => {
+  const tpl    = templates.find(t => t.id === currentId);
+  if (!tpl) return;
+  const vals   = getValues();
+  const filled = interpolate(tpl.cuerpo, vals);
+  const subj   = interpolate(tpl.asunto, vals);
+
+  // Full HTML email blob
+  const htmlContent = `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="font-family:Arial,sans-serif;font-size:14px;line-height:1.8;color:#1a1917;max-width:600px;margin:0 auto;padding:24px">${renderHtml(filled)}</body></html>`;
+  const plainContent = renderPlain(filled);
+
+  const ok = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> ¡Copiado!`;
+  const orig = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg> Copiar HTML`;
+
+  try {
+    const blob = new ClipboardItem({
+      'text/html':  new Blob([htmlContent],  { type: 'text/html' }),
+      'text/plain': new Blob([plainContent], { type: 'text/plain' })
+    });
+    navigator.clipboard.write([blob]).then(() => {
+      flashBtn(copyBtn, ok, orig);
+      showToast('HTML copiado — pega directamente en Outlook o Gmail');
+    }).catch(() => fallbackCopyHtml(plainContent, ok, orig));
+  } catch(e) {
+    fallbackCopyHtml(plainContent, ok, orig);
+  }
+});
+
+function fallbackCopyHtml(plain, ok, orig) {
+  const ta = document.createElement('textarea');
+  ta.value = plain; ta.style.cssText = 'position:fixed;opacity:0';
+  document.body.appendChild(ta); ta.select(); document.execCommand('copy');
+  document.body.removeChild(ta);
+  flashBtn(copyBtn, ok, orig);
+  showToast('Copiado como texto plano (tu navegador no soporta HTML directo)');
+}
+
+// Copy plain text
+copyPlainBtn.addEventListener('click', () => {
+  const tpl    = templates.find(t => t.id === currentId);
+  if (!tpl) return;
+  const vals   = getValues();
+  const plain  = renderPlain(interpolate(tpl.cuerpo, vals));
+  const ok   = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> ¡Copiado!`;
+  const orig = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/></svg> Texto`;
+  navigator.clipboard.writeText(plain).then(() => {
+    flashBtn(copyPlainBtn, ok, orig);
+    showToast('Texto plano copiado');
+  }).catch(() => {
     const ta = document.createElement('textarea');
-    ta.value = text; ta.style.cssText = 'position:fixed;opacity:0';
+    ta.value = plain; ta.style.cssText = 'position:fixed;opacity:0';
     document.body.appendChild(ta); ta.select(); document.execCommand('copy');
-    document.body.removeChild(ta); done();
+    document.body.removeChild(ta);
+    flashBtn(copyPlainBtn, ok, orig);
+    showToast('Texto plano copiado');
   });
 });
 
@@ -825,7 +975,7 @@ function openModal(mode) {
   mKey.value     = tpl?.id      || '';
   mKey.disabled  = mode === 'edit';
   mSubject.value = tpl?.asunto  || '';
-  mBody.value    = tpl?.cuerpo  || '';
+  mBody.innerHTML = tpl?.cuerpo ? bodyToEditable(tpl.cuerpo) : '';
   mFields.innerHTML = '';
   (tpl?.campos || []).forEach(f => mFields.appendChild(makeFieldRow(f)));
   deleteBtn.style.display = mode === 'edit' ? 'inline-flex' : 'none';
@@ -925,13 +1075,13 @@ saveBtn.addEventListener('click', async () => {
   const nombre = mName.value.trim();
   const id     = mKey.value.trim().replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_]/g,'');
   const asunto = mSubject.value.trim();
-  const cuerpo = mBody.value;
+  const cuerpo = editableToBody(mBody);
   const campos = readModalFields();
 
   if (!nombre) { mName.focus(); showToast('El nombre es obligatorio'); return; }
   if (!id)     { mKey.focus();  showToast('La clave interna es obligatoria'); return; }
   if (!asunto) { mSubject.focus(); showToast('El asunto es obligatorio'); return; }
-  if (!cuerpo) { mBody.focus(); showToast('El cuerpo no puede estar vacío'); return; }
+  if (!cuerpo.trim()) { mBody.focus(); showToast('El cuerpo no puede estar vacío'); return; }
 
   setSyncState('syncing', 'Guardando…');
   saveBtn.disabled = true;
