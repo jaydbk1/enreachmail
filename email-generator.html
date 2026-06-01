@@ -639,41 +639,22 @@ mBody.addEventListener('blur', () => {
 });
 
 // Paste interceptor: if there's a selection and clipboard has a URL → make link
-mBody.addEventListener('paste', async (e) => {
+// Uses execCommand so the action enters the native undo history → Ctrl+Z works normally
+mBody.addEventListener('paste', (e) => {
   const sel = window.getSelection();
   if (!sel || sel.isCollapsed || !sel.rangeCount) return; // no selection → normal paste
 
-  let pasted = '';
-  if (e.clipboardData) {
-    pasted = e.clipboardData.getData('text/plain').trim();
-  }
-
-  const isUrl = /^https?:\/\/\S+$/.test(pasted);
+  const pasted = (e.clipboardData || window.clipboardData).getData('text/plain').trim();
+  const isUrl  = /^https?:\/\/\S+$/.test(pasted);
   if (!isUrl) return; // not a URL → normal paste
 
   e.preventDefault();
-  const range = sel.getRangeAt(0);
-  const selectedText = range.toString();
+  const selectedText = sel.toString();
   if (!selectedText) return;
 
-  // Build the link
-  const a = document.createElement('a');
-  a.href = pasted;
-  a.textContent = selectedText;
-  a.style.cssText = 'color:#2d5be3;text-decoration:underline';
-  a.setAttribute('contenteditable', 'false');
-  a.setAttribute('target', '_blank');
-  a.setAttribute('data-link', 'true');
-
-  range.deleteContents();
-  range.insertNode(a);
-
-  // Move cursor after the link
-  const newRange = document.createRange();
-  newRange.setStartAfter(a);
-  newRange.collapse(true);
-  sel.removeAllRanges();
-  sel.addRange(newRange);
+  // execCommand keeps the action in the browser undo stack
+  const html = `<a href="${pasted}" style="color:#2d5be3;text-decoration:underline" contenteditable="false" target="_blank" data-link="true">${selectedText}</a>`;
+  document.execCommand('insertHTML', false, html);
 });
 const mFields     = document.getElementById('fieldsEditor');
 const addFieldBtn = document.getElementById('addFieldBtn');
