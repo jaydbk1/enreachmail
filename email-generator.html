@@ -807,7 +807,7 @@ copyBtn.addEventListener('click', () => {
   const subj   = interpolate(tpl.asunto, vals);
 
   // Full HTML email blob
-  const htmlContent = `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="font-family:Arial,sans-serif;font-size:14px;line-height:1.8;color:#1a1917;max-width:600px;margin:0 auto;padding:24px">${renderHtml(filled)}</body></html>`;
+  const htmlContent = `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="font-family:'Segoe UI',sans-serif;font-size:10pt;line-height:1.8;color:#1a1917;max-width:600px;margin:0 auto;padding:24px">${renderHtml(filled)}</body></html>`;
   const plainContent = renderPlain(filled);
 
   const ok = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> ¡Copiado!`;
