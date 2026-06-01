@@ -445,7 +445,7 @@ body {
         <textarea id="m_body" rows="10" placeholder="Usa {id_del_campo} para insertar valores.&#10;Ej: Hola, {nombre}:&#10;&#10;Tu pedido #{numero} ha sido procesado."></textarea>
       </div>
       <div class="hint">
-        💡 Cada campo genera una variable <code>{id}</code> usable en asunto y cuerpo. El ID debe ser único y sin espacios.
+        💡 Cada campo genera una variable <code>{id}</code> usable en asunto y cuerpo. El ID debe ser único y sin espacios.<br>⏰ <code>{saludo}</code> se resuelve automáticamente según la hora: <em>Buenos días / Buenas tardes / Buenas noches</em>.
       </div>
     </div>
     <div class="modal-footer">
@@ -634,8 +634,17 @@ function populateSelect(activeId) {
 /* =====================================================
    RENDER PREVIEW
 ===================================================== */
+function getSaludo() {
+  const h = new Date().getHours();
+  if (h >= 6  && h < 14) return 'Buenos días';
+  if (h >= 14 && h < 21) return 'Buenas tardes';
+  return 'Buenas noches';
+}
+
 function interpolate(str, vals) {
-  return str.replace(/\{(\w+)\}/g, (_, k) => vals[k] || `{${k}}`);
+  // {saludo} is auto-resolved by time of day, no need to fill it manually
+  const enriched = { saludo: getSaludo(), ...vals };
+  return str.replace(/\{(\w+)\}/g, (_, k) => enriched[k] || `{${k}}`);
 }
 
 function getValues() {
