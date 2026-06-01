@@ -223,10 +223,43 @@ body {
 }
 .fields-editor-label { font-size: 12px; font-weight: 500; color: var(--text-secondary); }
 .field-row {
-  display: grid; grid-template-columns: 1fr 1fr auto auto; gap: 8px;
-  align-items: center; background: var(--bg); padding: 8px 10px;
+  background: var(--bg); padding: 8px 10px;
   border-radius: var(--radius-sm); border: 1px solid var(--border);
+  display: flex; flex-direction: column; gap: 6px;
 }
+.field-row-top {
+  display: grid; grid-template-columns: auto 1fr 1fr; gap: 8px; align-items: center;
+}
+.field-row-bottom {
+  display: flex; align-items: center; gap: 8px; padding-left: 23px;
+}
+.field-row-bottom select {
+  font-size: 12px; padding: 3px 6px; border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm); background: var(--surface);
+  color: var(--text-primary); font-family: inherit; outline: none;
+}
+.var-badge {
+  font-size: 11px; font-family: monospace; background: var(--accent-bg);
+  color: var(--accent); padding: 2px 8px; border-radius: 4px;
+  border: 1px solid #c5d4f7; flex-shrink: 0; cursor: pointer;
+  transition: background .15s;
+}
+.var-badge:hover { background: #d8e4fb; }
+.var-badge.copied { background: var(--success-bg); color: var(--success); border-color: #a7dfc2; }
+.field-row-copy {
+  background: none; border: none; cursor: pointer; color: var(--text-muted);
+  display: flex; padding: 2px; border-radius: var(--radius-sm); transition: color .15s;
+  position: relative;
+}
+.field-row-copy:hover { color: var(--accent); }
+.field-row-copy .copy-tip {
+  display: none; position: absolute; bottom: calc(100% + 5px); left: 50%;
+  transform: translateX(-50%); background: var(--text-primary); color: #fff;
+  font-size: 11px; font-weight: 500; white-space: nowrap;
+  padding: 3px 8px; border-radius: 4px; pointer-events: none;
+}
+.field-row-copy.copied { color: var(--success); }
+.field-row-copy.copied .copy-tip { display: block; }
 .field-row input, .field-row select {
   padding: 5px 8px; border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm); background: var(--surface);
@@ -388,10 +421,22 @@ body {
       <div>
         <div class="fields-editor-head">
           <span class="fields-editor-label">Campos personalizables</span>
-          <button class="btn" id="addFieldBtn" style="height:28px;padding:0 10px;font-size:12px">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
-            Añadir campo
-          </button>
+          <div style="display:flex;gap:6px;position:relative">
+            <div style="position:relative">
+              <button class="btn" id="reuseFieldBtn" style="height:28px;padding:0 10px;font-size:12px" title="Añadir un campo que ya existe en otra plantilla">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px"><path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z"/><path d="M7 7h.01"/></svg>
+                Reusar
+              </button>
+              <div id="reuseDropdown" style="display:none;position:absolute;right:0;top:34px;background:var(--surface);border:1px solid var(--border-strong);border-radius:var(--radius-md);min-width:240px;box-shadow:0 4px 16px rgba(0,0,0,.1);z-index:99;overflow:hidden">
+                <div style="padding:8px 12px 6px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border)">Campos existentes</div>
+                <div id="reuseList" style="max-height:220px;overflow-y:auto;padding:6px"></div>
+              </div>
+            </div>
+            <button class="btn" id="addFieldBtn" style="height:28px;padding:0 10px;font-size:12px">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+              Nuevo campo
+            </button>
+          </div>
         </div>
         <div class="fields-editor" id="fieldsEditor"></div>
       </div>
@@ -693,19 +738,48 @@ function makeFieldRow(f = { id:'', label:'', type:'input' }) {
   row.className = 'field-row';
   row.draggable = true;
   row.innerHTML = `
-    <span class="field-row-grip">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/></svg>
-    </span>
-    <input type="text" class="fr-id"    placeholder="id_campo" value="${esc(f.id)}"    title="ID variable">
-    <input type="text" class="fr-label" placeholder="Etiqueta" value="${esc(f.label)}" title="Etiqueta visible">
-    <select class="fr-type">
-      <option value="input"    ${f.type==='input'?'selected':''}>Texto</option>
-      <option value="textarea" ${f.type==='textarea'?'selected':''}>Área</option>
-    </select>
-    <button class="field-row-del" title="Eliminar">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-    </button>`;
+    <div class="field-row-top">
+      <span class="field-row-grip">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/></svg>
+      </span>
+      <input type="text" class="fr-id"    placeholder="id_campo" value="${esc(f.id)}"    title="ID variable">
+      <input type="text" class="fr-label" placeholder="Etiqueta" value="${esc(f.label)}" title="Etiqueta visible">
+    </div>
+    <div class="field-row-bottom">
+      <select class="fr-type">
+        <option value="input"    ${f.type==='input'?'selected':''}>Texto</option>
+        <option value="textarea" ${f.type==='textarea'?'selected':''}>Área</option>
+      </select>
+      <span class="var-badge" title="Clic para copiar la variable">{${esc(f.id) || 'id'}}</span>
+      <button class="field-row-del" title="Eliminar campo" style="margin-left:auto">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+      </button>
+    </div>`;
   row.querySelector('.field-row-del').addEventListener('click', () => row.remove());
+
+  // Update badge text live as user types the id
+  const frId = row.querySelector('.fr-id');
+  const badge = row.querySelector('.var-badge');
+  frId.addEventListener('input', () => {
+    badge.textContent = '{' + (frId.value.trim() || 'id') + '}';
+  });
+
+  // Click badge to copy variable
+  badge.addEventListener('click', () => {
+    const id = frId.value.trim();
+    if (!id) return;
+    const variable = '{' + id + '}';
+    navigator.clipboard.writeText(variable).catch(() => {
+      const ta = document.createElement('textarea');
+      ta.value = variable; ta.style.cssText = 'position:fixed;opacity:0';
+      document.body.appendChild(ta); ta.select(); document.execCommand('copy');
+      document.body.removeChild(ta);
+    });
+    badge.classList.add('copied');
+    const orig = badge.textContent;
+    badge.textContent = '✓ copiado';
+    setTimeout(() => { badge.classList.remove('copied'); badge.textContent = orig; }, 1600);
+  });
   row.addEventListener('dragstart', e => { e.dataTransfer.effectAllowed='move'; row.style.opacity='.4'; mFields._drag=row; });
   row.addEventListener('dragend',   () => { row.style.opacity=''; });
   row.addEventListener('dragover',  e => {
@@ -766,6 +840,74 @@ overlay.addEventListener('click', e => {
 });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 addFieldBtn.addEventListener('click', () => mFields.appendChild(makeFieldRow()));
+
+// ── Reuse existing field dropdown ──
+const reuseBtn      = document.getElementById('reuseFieldBtn');
+const reuseDropdown = document.getElementById('reuseDropdown');
+const reuseList     = document.getElementById('reuseList');
+
+function getExistingFields() {
+  // Collect all unique fields across all templates, deduplicated by id
+  const seen = new Map();
+  templates.forEach(t => {
+    (t.campos || []).forEach(f => {
+      if (!seen.has(f.id)) seen.set(f.id, f);
+    });
+  });
+  return Array.from(seen.values()).sort((a, b) => a.id.localeCompare(b.id));
+}
+
+function openReuseDropdown() {
+  const existing = getExistingFields();
+
+  // Get ids already in the current modal editor to mark them
+  const usedIds = new Set(
+    Array.from(mFields.querySelectorAll('.fr-id')).map(el => el.value.trim()).filter(Boolean)
+  );
+
+  reuseList.innerHTML = '';
+
+  if (!existing.length) {
+    reuseList.innerHTML = '<div style="padding:10px 12px;font-size:12.5px;color:var(--text-muted)">No hay campos en otras plantillas todavía.</div>';
+  } else {
+    existing.forEach(f => {
+      const already = usedIds.has(f.id);
+      const item = document.createElement('div');
+      item.style.cssText = `display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 10px;border-radius:var(--radius-sm);cursor:${already ? 'default' : 'pointer'};opacity:${already ? '.45' : '1'};transition:background .12s`;
+      item.innerHTML = `
+        <div style="display:flex;flex-direction:column;gap:1px">
+          <span style="font-size:13px;font-weight:500;color:var(--text-primary)">${esc(f.label)}</span>
+          <span style="font-size:11px;color:var(--text-muted);font-family:monospace">{${esc(f.id)}} · ${f.type === 'textarea' ? 'Área' : 'Texto'}</span>
+        </div>
+        ${already
+          ? '<span style="font-size:11px;color:var(--text-muted);flex-shrink:0">Ya añadido</span>'
+          : '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;flex-shrink:0;color:var(--accent)"><path d="M5 12h14"/><path d="M12 5v14"/></svg>'
+        }`;
+      if (!already) {
+        item.addEventListener('mouseenter', () => item.style.background = 'var(--bg)');
+        item.addEventListener('mouseleave', () => item.style.background = '');
+        item.addEventListener('click', () => {
+          mFields.appendChild(makeFieldRow(f));
+          closeReuseDropdown();
+        });
+      }
+      reuseList.appendChild(item);
+    });
+  }
+
+  reuseDropdown.style.display = 'block';
+}
+
+function closeReuseDropdown() { reuseDropdown.style.display = 'none'; }
+
+reuseBtn.addEventListener('click', e => {
+  e.stopPropagation();
+  reuseDropdown.style.display === 'none' ? openReuseDropdown() : closeReuseDropdown();
+});
+
+document.addEventListener('click', e => {
+  if (!reuseDropdown.contains(e.target) && e.target !== reuseBtn) closeReuseDropdown();
+});
 
 /* =====================================================
    MODAL — save
