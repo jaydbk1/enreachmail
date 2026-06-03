@@ -456,7 +456,7 @@ body {
         </div>
       </div>
       <div class="hint">
-        💡 Cada campo genera una variable <code>{id}</code> usable en asunto y cuerpo. El ID debe ser único y sin espacios.<br>⏰ <code>{saludo}</code> → <em>Buenos días / Buenas tardes / Buenas noches</em> según la hora.<br>🔗 Hipervínculos: <code>[texto del enlace](https://url.com)</code> — se renderiza como enlace clicable.
+        💡 Cada campo genera una variable <code>{id}</code> usable en asunto y cuerpo. El ID debe ser único y sin espacios.<br>⏰ <code>{saludo}</code> → <em>Buenos días / Buenas tardes / Buenas noches</em> · <code>{greeting}</code> → <em>Good morning / Good afternoon / Good evening</em><br>🔗 Hipervínculos: <code>[texto del enlace](https://url.com)</code> — se renderiza como enlace clicable.
       </div>
     </div>
     <div class="modal-footer">
@@ -708,9 +708,17 @@ function getSaludo() {
   return 'Buenas noches';
 }
 
+function getGreeting() {
+  const h = new Date().getHours();
+  if (h >= 6  && h < 12) return 'Good morning';
+  if (h >= 12 && h < 18) return 'Good afternoon';
+  if (h >= 18 && h < 21) return 'Good evening';
+  return 'Good night';
+}
+
 function interpolate(str, vals) {
-  // {saludo} is auto-resolved by time of day, no need to fill it manually
-  const enriched = { saludo: getSaludo(), ...vals };
+  // {saludo} and {greeting} are auto-resolved by time of day
+  const enriched = { saludo: getSaludo(), greeting: getGreeting(), ...vals };
   return str.replace(/\{(\w+)\}/g, (_, k) => enriched[k] || `{${k}}`);
 }
 
